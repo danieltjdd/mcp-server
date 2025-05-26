@@ -121,6 +121,31 @@ app.post('/vercel/fix-build-script', async (req, res) => {
   }
 });
 
+// Endpoint para receber webhooks do GitHub
+app.post('/github/webhook', (req, res) => {
+  const event = req.headers['x-github-event'];
+  const payload = req.body;
+  console.log('Recebido webhook do GitHub:', event);
+  // Aqui você pode analisar o evento e acionar automações se necessário
+  res.status(200).send('OK');
+});
+
+// Endpoint para receber webhooks do Vercel
+app.post('/vercel/webhook', async (req, res) => {
+  const payload = req.body;
+  console.log('Recebido webhook do Vercel:', payload);
+
+  // Exemplo: se status do deploy for erro, aciona automação de correção
+  if (payload && payload.deployment && payload.deployment.state === 'ERROR') {
+    // Aqui você pode chamar a função de correção automática
+    // Exemplo: await corrigirErroDeploy(payload)
+    console.log('Erro detectado no deploy! Acionando automação de correção...');
+    // Você pode chamar o endpoint interno ou função já existente
+  }
+
+  res.status(200).send('OK');
+});
+
 app.listen(port, () => {
   console.log(`MCP Server rodando na porta ${port}`);
 });
