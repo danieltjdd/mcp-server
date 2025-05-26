@@ -146,6 +146,58 @@ app.post('/vercel/webhook', async (req, res) => {
   res.status(200).send('OK');
 });
 
+// Função para monitorar deploys no Vercel e corrigir automaticamente se houver erro
+const vercelToken = process.env.VERCEL_TOKEN;
+const vercelProject = process.env.VERCEL_PROJECT || 'smartcont-automations-vfna';
+const vercelTeam = process.env.VERCEL_TEAM || undefined; // se usar time, defina aqui
+const vercelOwner = process.env.VERCEL_OWNER || 'danieltjdd';
+
+async function monitorarDeploysVercel() {
+  try {
+    // Buscar os últimos deploys do projeto
+    let url = `https://api.vercel.com/v6/deployments?projectId=${vercelProject}`;
+    if (vercelTeam) {
+      url += `&teamId=${vercelTeam}`;
+    }
+    const response = await axios.get(url, {
+      headers: {
+        Authorization: `Bearer ${vercelToken}`
+      }
+    });
+    const deploys = response.data.deployments || [];
+    // Verificar se há algum deploy com erro
+    const erroDeploy = deploys.find(d => d.state === 'ERROR');
+    if (erroDeploy) {
+      console.log('Deploy com erro detectado:', erroDeploy);
+      // Acionar automação de correção
+      await corrigirErroDeploy();
+    } else {
+      console.log('Nenhum deploy com erro encontrado.');
+    }
+  } catch (err) {
+    console.error('Erro ao monitorar deploys do Vercel:', err.response?.data || err.message);
+  }
+}
+
+// Função para acionar automação de correção
+async function corrigirErroDeploy() {
+  try {
+    // Chama o próprio endpoint de correção já implementado
+    const githubOwner = vercelOwner;
+    const githubRepo = 'smartcont-automations';
+    const res = await axios.post(`http://localhost:${port}/vercel/fix-build-script`, {
+      repo: githubRepo,
+      owner: githubOwner
+    });
+    console.log('Automação de correção acionada:', res.data);
+  } catch (err) {
+    console.error('Erro ao acionar automação de correção:', err.response?.data || err.message);
+  }
+}
+
+// Inicia o monitoramento a cada 2 minutos
+setInterval(monitorarDeploysVercel, 2 * 60 * 1000);
+
 app.listen(port, () => {
   console.log(`MCP Server rodando na porta ${port}`);
 });
