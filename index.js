@@ -56,6 +56,71 @@ app.get('/github/repos', async (req, res) => {
   }
 });
 
+app.post('/vercel/fix-build-script', async (req, res) => {
+  const { repo, owner } = req.body;
+  const githubToken = process.env.GITHUB_TOKEN;
+
+  if (!repo || !owner) {
+    return res.status(400).json({ error: 'repo e owner são obrigatórios' });
+  }
+
+  try {
+    // 1. Obter o conteúdo atual do package.json
+    const packageJsonResponse = await axios.get(
+      `https://api.github.com/repos/${owner}/${repo}/contents/package.json`,
+      {
+        headers: {
+          Authorization: `token ${githubToken}`,
+          'User-Agent': 'mcp-server'
+        }
+      }
+    );
+
+    const packageJson = JSON.parse(
+      Buffer.from(packageJsonResponse.data.content, 'base64').toString()
+    );
+
+    // 2. Adicionar o script vercel-build se não existir
+    if (!packageJson.scripts) {
+      packageJson.scripts = {};
+    }
+
+    if (!packageJson.scripts['vercel-build']) {
+      packageJson.scripts['vercel-build'] = 'next build';
+    }
+
+    // 3. Atualizar o arquivo no GitHub
+    const updatedContent = Buffer.from(JSON.stringify(packageJson, null, 2)).toString('base64');
+
+    await axios.put(
+      `https://api.github.com/repos/${owner}/${repo}/contents/package.json`,
+      {
+        message: 'Adiciona script vercel-build',
+        content: updatedContent,
+        sha: packageJsonResponse.data.sha
+      },
+      {
+        headers: {
+          Authorization: `token ${githubToken}`,
+          'User-Agent': 'mcp-server'
+        }
+      }
+    );
+
+    res.json({ 
+      success: true, 
+      message: 'Script vercel-build adicionado com sucesso',
+      packageJson: packageJson
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar package.json:', error.response?.data || error.message);
+    res.status(500).json({ 
+      error: 'Erro ao atualizar package.json',
+      details: error.response?.data || error.message
+    });
+  }
+});
+
 app.listen(port, () => {
   console.log(`MCP Server rodando na porta ${port}`);
 });
