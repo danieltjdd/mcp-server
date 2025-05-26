@@ -7,6 +7,10 @@ const port = process.env.PORT || 8080;
 app.use(cors());
 app.use(express.json());
 
+<<<<<<< HEAD
+=======
+// Endpoint principal do MCP
+>>>>>>> f27db24486d9e66c029e95f650e0d68da47756ec
 app.get('/', (req, res) => {
   res.json({
     status: 'online',
@@ -15,6 +19,10 @@ app.get('/', (req, res) => {
   });
 });
 
+<<<<<<< HEAD
+=======
+// Endpoint de ferramentas (exemplo)
+>>>>>>> f27db24486d9e66c029e95f650e0d68da47756ec
 app.get('/tools', (req, res) => {
   res.json({
     tools: [
@@ -33,6 +41,10 @@ app.get('/tools', (req, res) => {
   });
 });
 
+<<<<<<< HEAD
+=======
+// Endpoint de status (exemplo)
+>>>>>>> f27db24486d9e66c029e95f650e0d68da47756ec
 app.get('/status', (req, res) => {
   res.json({
     status: 'online',
@@ -41,6 +53,10 @@ app.get('/status', (req, res) => {
   });
 });
 
+<<<<<<< HEAD
+=======
+// Endpoint para listar repositórios do GitHub
+>>>>>>> f27db24486d9e66c029e95f650e0d68da47756ec
 app.get('/github/repos', async (req, res) => {
   const githubToken = process.env.GITHUB_TOKEN;
   try {
@@ -58,4 +74,4 @@ app.get('/github/repos', async (req, res) => {
 
 app.listen(port, () => {
   console.log(`MCP Server rodando na porta ${port}`);
-}); 
+});
