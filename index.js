@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const { exec } = require('child_process');
 const app = express();
 const port = process.env.PORT || 8080;
 
@@ -64,8 +65,13 @@ app.post('/vercel/fix-build-script', async (req, res) => {
     return res.status(400).json({ error: 'repo e owner são obrigatórios' });
   }
 
+  // Impede alteração no próprio MCP
+  if (repo === 'mcp-server') {
+    return res.status(400).json({ error: 'Não é permitido alterar o MCP Server por automação.' });
+  }
+
   try {
-    // 1. Obter o conteúdo atual do package.json
+    // 1. Obter o conteúdo atual do package.json do repositório correto
     const packageJsonResponse = await axios.get(
       `https://api.github.com/repos/${owner}/${repo}/contents/package.json`,
       {
@@ -76,26 +82,24 @@ app.post('/vercel/fix-build-script', async (req, res) => {
       }
     );
 
+    // Decodifica o conteúdo original
     const packageJson = JSON.parse(
       Buffer.from(packageJsonResponse.data.content, 'base64').toString()
     );
 
-    // 2. Adicionar o script vercel-build se não existir
+    // 2. Adiciona ou corrige apenas o script vercel-build
     if (!packageJson.scripts) {
       packageJson.scripts = {};
     }
+    packageJson.scripts['vercel-build'] = 'next build';
 
-    if (!packageJson.scripts['vercel-build']) {
-      packageJson.scripts['vercel-build'] = 'next build';
-    }
-
-    // 3. Atualizar o arquivo no GitHub
+    // 3. Atualiza o arquivo no GitHub, preservando todo o restante
     const updatedContent = Buffer.from(JSON.stringify(packageJson, null, 2)).toString('base64');
 
     await axios.put(
       `https://api.github.com/repos/${owner}/${repo}/contents/package.json`,
       {
-        message: 'Adiciona script vercel-build',
+        message: 'Adiciona ou corrige script vercel-build',
         content: updatedContent,
         sha: packageJsonResponse.data.sha
       },
@@ -109,7 +113,7 @@ app.post('/vercel/fix-build-script', async (req, res) => {
 
     res.json({ 
       success: true, 
-      message: 'Script vercel-build adicionado com sucesso',
+      message: 'Script vercel-build adicionado ou corrigido com sucesso',
       packageJson: packageJson
     });
   } catch (error) {
@@ -165,12 +169,14 @@ async function monitorarDeploysVercel() {
       }
     });
     const deploys = response.data.deployments || [];
-    // Verificar se há algum deploy com erro
-    const erroDeploy = deploys.find(d => d.state === 'ERROR');
-    if (erroDeploy) {
-      console.log('Deploy com erro detectado:', erroDeploy);
-      // Acionar automação de correção
-      await corrigirErroDeploy();
+    // Verificar todos os deploys com erro
+    const deploysComErro = deploys.filter(d => d.state === 'ERROR');
+    if (deploysComErro.length > 0) {
+      for (const erroDeploy of deploysComErro) {
+        console.log('Deploy com erro detectado:', erroDeploy);
+        // Acionar automação de correção para cada erro
+        await corrigirErroDeploy();
+      }
     } else {
       console.log('Nenhum deploy com erro encontrado.');
     }
@@ -182,8 +188,8 @@ async function monitorarDeploysVercel() {
 // Função para acionar automação de correção
 async function corrigirErroDeploy() {
   try {
-    // Chama o próprio endpoint de correção já implementado
-    const githubOwner = vercelOwner;
+    // Corrige sempre o repositório smartcont-automations
+    const githubOwner = 'danieltjdd';
     const githubRepo = 'smartcont-automations';
     const res = await axios.post(`http://localhost:${port}/vercel/fix-build-script`, {
       repo: githubRepo,
@@ -197,6 +203,16 @@ async function corrigirErroDeploy() {
 
 // Inicia o monitoramento a cada 2 minutos
 setInterval(monitorarDeploysVercel, 2 * 60 * 1000);
+
+// Endpoint para rodar git pull
+app.post('/mcp/github/pull', (req, res) => {
+  exec('git pull', (error, stdout, stderr) => {
+    if (error) {
+      return res.status(500).json({ success: false, error: stderr });
+    }
+    res.json({ success: true, output: stdout });
+  });
+});
 
 app.listen(port, () => {
   console.log(`MCP Server rodando na porta ${port}`);
