@@ -215,12 +215,13 @@ app.post('/mcp/github/pull', (req, res) => {
   });
 });
 
+// Endpoint de automação com IA do Cursor local via ngrok
 app.post('/mcp/solve', async (req, res) => {
   const { problema } = req.body;
   let resultado = [];
 
-  // 1. Envia o problema para o Cursor (URL pública Render)
-  const cursorResponse = await fetch('https://cursor-xxxx.onrender.com/mpc/solve', {
+  // 1. Envia o problema para o Cursor (URL do ngrok)
+  const cursorResponse = await fetch('https://9b18-181-218-78-10.ngrok-free.app/mpc/solve', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt: problema })
