@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const { exec } = require('child_process');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 const app = express();
 const port = process.env.PORT || 8080;
 
@@ -213,6 +214,38 @@ app.post('/mcp/github/pull', (req, res) => {
     res.json({ success: true, output: stdout });
   });
 });
+
+app.post('/mcp/solve', async (req, res) => {
+  const { problema } = req.body;
+  let resultado = [];
+
+  // 1. Envia o problema para o Cursor (URL pública Render)
+  const cursorResponse = await fetch('https://cursor-xxxx.onrender.com/mpc/solve', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt: problema })
+  });
+  const { comandos } = await cursorResponse.json();
+
+  // 2. Executa cada comando e armazena o resultado
+  for (const cmd of comandos) {
+    resultado.push(await executarComando(cmd));
+  }
+
+  res.json({ status: 'finalizado', comandos, resultado });
+});
+
+function executarComando(cmd) {
+  return new Promise((resolve) => {
+    exec(cmd, { cwd: process.cwd() }, (error, stdout, stderr) => {
+      if (error) {
+        resolve({ comando: cmd, erro: error.message, stderr });
+      } else {
+        resolve({ comando: cmd, stdout });
+      }
+    });
+  });
+}
 
 app.listen(port, () => {
   console.log(`MCP Server rodando na porta ${port}`);
